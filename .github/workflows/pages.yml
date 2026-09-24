@@ -1,0 +1,31 @@
+name: Deploy dashboard
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    if: vars.PAGES_READY == 'true'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify public build
+        run: |
+          node -e 'const fs=require("fs");const files=fs.readdirSync(".").filter(f=>/^snapshot\..*\.json$/.test(f));if(files.length!==1)throw Error("Unexpected snapshots");const s=JSON.parse(fs.readFileSync(files[0]));if(s.finance.preview||s.finance.rentSchedule.length||Object.values(s.queries).some(q=>q.rows.length))throw Error("Private data must not be published");if(!s.finance.clientId)throw Error("Google login is not configured");'
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
